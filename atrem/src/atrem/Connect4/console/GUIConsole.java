@@ -45,7 +45,7 @@ public class GUIConsole {
 	}
 
 	private void drawSlots(int slots) {
-		System.out.println("Numery slotów:");
+		System.out.println("Numery slotow:");
 		for (int i = 1; i <= slots; i++) {
 			System.out.print("| " + i + " |");
 		}
