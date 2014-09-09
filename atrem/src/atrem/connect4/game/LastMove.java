@@ -1,8 +1,10 @@
 package atrem.connect4.game;
 
+import java.rmi.server.UnicastRemoteObject;
+
 import atrem.connect4.game.player.PlayerId;
 
-public class LastMove {
+public class LastMove extends UnicastRemoteObject {
 	private int lastSlot, lastRow;
 	private PlayerId playerId;
 
