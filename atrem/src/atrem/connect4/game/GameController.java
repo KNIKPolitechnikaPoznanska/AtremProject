@@ -1,6 +1,8 @@
 package atrem.connect4.game;
 
 import java.awt.Color;
+import java.awt.Point;
+import java.util.List;
 
 import atrem.connect4.game.board.Board;
 import atrem.connect4.game.board.HoleState;
@@ -192,6 +194,10 @@ public class GameController implements Runnable {
 		} else {
 			setPlayerTurn(PlayerId.PLAYER1);
 		}
+	}
+
+	public List<Point> getWinningCoordinates() {
+		return getLogic().getWinningCoordinates();
 	}
 
 	public void backToMenu() {

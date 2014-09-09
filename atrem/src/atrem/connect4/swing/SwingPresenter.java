@@ -58,8 +58,8 @@ public class SwingPresenter implements PlayerController {
 	 * Wywo³ywane przez GC.GameLoop
 	 */
 	@Override
-	public void yourTurn() {
-		// SemaphoreToken();
+	public void yourTurn() {// LastMove lastMove
+
 		gameBoard.enableButtons(true);
 		sideBoard.tokenEnable();
 		LastSlot = gameController.getLastMove().getLastSlot();
@@ -157,7 +157,7 @@ public class SwingPresenter implements PlayerController {
 	@Override
 	public void endOfGame(ResultState resultGame) {
 		if (resultGame != ResultState.DRAW) {
-			markWinningFour(gameController.getLogic().getWinningCoordinates());
+			markWinningFour(gameController.getWinningCoordinates());
 			// gameController.getLogic().getWinningCoordinates().clear();
 		}
 		if (resultGame == ResultState.PLAYER_1_WIN) {
