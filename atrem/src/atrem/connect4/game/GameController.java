@@ -5,6 +5,7 @@ import java.util.List;
 
 import atrem.connect4.game.board.Board;
 import atrem.connect4.game.board.HoleState;
+import atrem.connect4.game.player.PlayerAttributes;
 import atrem.connect4.game.player.PlayerController;
 import atrem.connect4.game.player.PlayerId;
 
@@ -15,7 +16,9 @@ public interface GameController {
 
 	public abstract void startNewGame();
 
-	public abstract void wakeUpGCr();
+	public abstract void connectPlayer();
+
+	public abstract void endPlayerInit();
 
 	public abstract void analyseDecision();
 
@@ -51,11 +54,11 @@ public interface GameController {
 
 	public abstract void setPlayer2(PlayerController player2);
 
-	public abstract GameState getGamestate();
+	public abstract GameState getGameState();
 
 	public abstract PlayerController getCurrentPlayer();
 
-	public abstract LastMove getLastMove();
+	public abstract Move getLastMove();
 
 	public abstract void setGamestate(GameState gamestate);
 
@@ -63,4 +66,11 @@ public interface GameController {
 
 	public abstract List<Point> getWinningCoordinates();
 
+	public PlayerAttributes getPlayer1Attributes();
+
+	public void setPlayer1Attributes(PlayerAttributes player1Attributes);
+
+	public PlayerAttributes getPlayer2Attributes();
+
+	public void setPlayer2Attributes(PlayerAttributes player2Attributes);
 }

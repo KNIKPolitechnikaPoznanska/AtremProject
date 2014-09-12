@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Point;
 import java.util.List;
 
+import atrem.connect4.factory.GameConfig;
 import atrem.connect4.game.board.Board;
 import atrem.connect4.game.board.HoleState;
 import atrem.connect4.game.player.PlayerAttributes;
@@ -16,14 +17,14 @@ public class GameControllerImpl implements Runnable, GameController {
 	private Logic logic;
 	private Board board;
 	private int doneMoves;
-	private LastMove lastMove;
+	private Move lastMove;
 	private PlayerController currentPlayer, player1, player2;
-	private int emptySpot, slot;
+	private int emptySpot;
 	private PlayerId playerTurn = PlayerId.PLAYER1;
 	private ResultState resultState = ResultState.NO_WIN;
 	private GameState gameState = GameState.PRE_INIT;
-
-	// private Stack<LastMove> lastMoveStack = new Stack<LastMove>();
+	private PlayerAttributes player1Attributes, player2Attributes;
+	private boolean endGame = false;
 
 	/**
 	 * Sprawdza którego z graczy jest kolej
@@ -32,12 +33,12 @@ public class GameControllerImpl implements Runnable, GameController {
 	 */
 	private PlayerController currentPlayer() {
 		switch (playerTurn) {
-		case PLAYER1:
-			return player1;
-		case PLAYER2:
-			return player2;
-		default:
-			return null; // player1
+			case PLAYER1 :
+				return player1;
+			case PLAYER2 :
+				return player2;
+			default :
+				return null;
 		}
 	}
 
@@ -49,7 +50,6 @@ public class GameControllerImpl implements Runnable, GameController {
 	@Override
 	public synchronized int move(int slot) {
 		this.currentPlayer = currentPlayer();
-		this.slot = slot;
 		emptySpot = board.findFreeSpot(slot);
 		if (emptySpot == -1) {
 			return emptySpot;
@@ -58,7 +58,6 @@ public class GameControllerImpl implements Runnable, GameController {
 		board.setLastSlot(slot);
 		board.setLastSpot(emptySpot);
 		lastMove.saveLastMove(slot, emptySpot, playerTurn);
-		// lastMoveStack.push(lastMove);
 		if (emptySpot != -1) {
 			gameState = GameState.MOVE_DONE;
 			notifyAll();
@@ -69,46 +68,41 @@ public class GameControllerImpl implements Runnable, GameController {
 	/*
 	 * (non-Javadoc)
 	 * 
-	 * @see atrem.connect4.game.GameController#startNewGame()
+	 * @see atrem.connect4.game.GameController#startGameLoop()
 	 */
-
 	@Override
-	public void startNewGame() {
-		int row = board.getRows();
-		int slot = board.getSlots();
-		PlayerAttributes player1Attributes = player1.getPlayerAttributes();
-		PlayerAttributes player2Attributes = player2.getPlayerAttributes();
-		Color player1Color = player1Attributes.getPlayerColor();
-		Color player2Color = player2Attributes.getPlayerColor();
-		lastMove = new LastMove();
-		board = new Board(row, slot);
-		resultState = ResultState.NO_WIN;
-		gameState = GameState.PRE_INIT;
-		startGameLoop();
-		if (player1 instanceof SwingPresenter) {
-			player1 = new SwingPresenter(this, player1Attributes, player2Color,
-					player1.getPlayerPoints());
-		} else
-			wakeUpGCr();
-		if (player2 instanceof SwingPresenter) {
-			player2 = new SwingPresenter(this, player2Attributes, player1Color,
-					player2.getPlayerPoints());
-		} else
-			wakeUpGCr();
-
-		doneMoves = 0;
-
+	public synchronized void startGameLoop() {
+		new Thread(this, "W¹tek kontrolera gry").start();
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see atrem.connect4.game.GameController#run()
+	 */
+	@Override
+	public void run() {
+		gameLoop();
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see atrem.connect4.game.GameController#startNewGame()
+	 */
 	private synchronized void gameLoop() {// ma odczytywaæ GameState
-		boolean endGame;
 		logic = new Logic(this);
-		lastMove = new LastMove();
-		// waitForInit();
+		lastMove = new Move();
+		System.out.println("Starting game.");
+
+		waitForPlayersToConnect();
+
+		waitForPlayersToInit();
+
 		while (resultState == ResultState.NO_WIN) {
 			currentPlayer = currentPlayer();
 			try {
-				this.wait(100);
+				Thread.sleep(100); // Dla AI
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -118,22 +112,28 @@ public class GameControllerImpl implements Runnable, GameController {
 			doneMoves++;
 			endGame = logic.getResultOfMove(lastMove.getLastRow(),
 					lastMove.getLastSlot(), doneMoves);
-
-			if (endGame) {
-				gameState = GameState.PRE_INIT;
-				changePlayer();
-				currentPlayer = currentPlayer();
-				currentPlayer.yourTurn();
-				player1.endOfGame(resultState);
-				player2.endOfGame(resultState);
+			if (gameIsEnded()) {
 				return;
 			}
 			changePlayer();
-
 		}
 	}
 
+	private boolean gameIsEnded() {
+		if (endGame) {
+			gameState = GameState.PRE_INIT;
+			changePlayer();
+			currentPlayer = currentPlayer();
+			currentPlayer.yourTurn();
+			player1.endOfGame(resultState);
+			player2.endOfGame(resultState);
+			return true;
+		}
+		return false;
+	}
 	private synchronized void waitForMove() {
+		System.out.println("Czekam na ruch gracza "
+				+ currentPlayer.getPlayerId());
 		while (gameState != GameState.MOVE_DONE) {
 			try {
 				wait();
@@ -143,9 +143,10 @@ public class GameControllerImpl implements Runnable, GameController {
 		}
 	}
 
-	private synchronized void waitForInit() {
-		while (gameState != GameState.END_INIT_ALL) {
+	private synchronized void waitForPlayersToConnect() {
+		while (gameState != GameState.PL2_CONNECTED) {
 			try {
+				System.out.println("WaitinForPlayers to connect. " + gameState);
 				wait();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
@@ -153,23 +154,48 @@ public class GameControllerImpl implements Runnable, GameController {
 		}
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see atrem.connect4.game.GameController#wakeUpGCr()
-	 */
+	private synchronized void waitForPlayersToInit() {
+		while (gameState != GameState.PL2_INITED) {
+			try {
+				System.out.println("WaitinForPlayers to init. " + gameState);
+				wait();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
 	@Override
-	public synchronized void wakeUpGCr() {
+	public synchronized void connectPlayer() {
 		switch (gameState) {
-		case PRE_INIT:
-			gameState = GameState.END_INIT_1;
-			break;
-		case END_INIT_1:
-			gameState = GameState.END_INIT_ALL;
-			this.notifyAll();
-			break;
-		default:
-			break;
+			case PRE_INIT :
+				gameState = GameState.PL1_CONNECTED;
+				System.out.println(gameState);
+				break;
+			case PL1_CONNECTED :
+				gameState = GameState.PL2_CONNECTED;
+				System.out.println(gameState);
+				this.notifyAll();
+				break;
+			default :
+				break;
+		}
+	}
+
+	@Override
+	public synchronized void endPlayerInit() {
+		switch (gameState) {
+			case PL2_CONNECTED :
+				gameState = GameState.PL1_INITED;
+				System.out.println("Player 1 ready.");
+				break;
+			case PL1_INITED :
+				gameState = GameState.PL2_INITED;
+				System.out.println("Player 2 ready.");
+				this.notifyAll();
+				break;
+			default :
+				break;
 		}
 	}
 
@@ -186,27 +212,39 @@ public class GameControllerImpl implements Runnable, GameController {
 		else if (player1.getPlayerAttributes().getPlayerDecision() == PlayerDecision.MENU
 				|| player2.getPlayerAttributes().getPlayerDecision() == PlayerDecision.MENU)
 			backToMenu();
-
 	}
 
 	/*
 	 * (non-Javadoc)
 	 * 
-	 * @see atrem.connect4.game.GameController#run()
+	 * @see atrem.connect4.game.GameController#startNewGame()
 	 */
 	@Override
-	public void run() {
-		gameLoop();
-	}
+	public void startNewGame() {
+		int row = board.getRows();
+		int slot = board.getSlots();
+		PlayerAttributes player1Attributes = player1.getPlayerAttributes();
+		PlayerAttributes player2Attributes = player2.getPlayerAttributes();
+		Color player1Color = player1Attributes.getPlayerColor();
+		Color player2Color = player2Attributes.getPlayerColor();
+		lastMove = new Move();
+		board = new Board(row, slot);
+		resultState = ResultState.NO_WIN;
+		gameState = GameState.PRE_INIT;
+		startGameLoop();
+		if (player1 instanceof SwingPresenter) {
+			player1 = new SwingPresenter(this, player1Attributes, player2Color,
+					player1.getPlayerPoints(), true);
+		} else
+			connectPlayer();
+		if (player2 instanceof SwingPresenter) {
+			player2 = new SwingPresenter(this, player2Attributes, player1Color,
+					player2.getPlayerPoints(), true);
+		} else
+			connectPlayer();
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see atrem.connect4.game.GameController#startGameLoop()
-	 */
-	@Override
-	public void startGameLoop() {
-		new Thread(this, "W¹tek kontrolera gry").start();
+		doneMoves = 0;
+
 	}
 
 	/**
@@ -215,7 +253,7 @@ public class GameControllerImpl implements Runnable, GameController {
 	private void changePlayer() {
 		if (playerTurn == PlayerId.PLAYER1) {
 			setPlayerTurn(PlayerId.PLAYER2);
-		} else {
+		} else if (playerTurn == PlayerId.PLAYER2) {
 			setPlayerTurn(PlayerId.PLAYER1);
 		}
 	}
@@ -227,9 +265,9 @@ public class GameControllerImpl implements Runnable, GameController {
 	 */
 	@Override
 	public void backToMenu() {
-		GameFactory gameFactory = new GameFactory();
-		GameConfig config = new GameConfig(gameFactory);
-		config.setDBox();
+		GameConfig config = new GameConfig();
+		config.showOfflineDBox();
+		config.showOnlineDBox();
 	}
 
 	/*
@@ -348,6 +386,27 @@ public class GameControllerImpl implements Runnable, GameController {
 	@Override
 	public void setPlayer1(PlayerController player1) {
 		this.player1 = player1;
+		player1Attributes = player1.getPlayerAttributes();
+	}
+
+	@Override
+	public PlayerAttributes getPlayer1Attributes() {
+		return player1Attributes;
+	}
+
+	@Override
+	public void setPlayer1Attributes(PlayerAttributes player1Attributes) {
+		this.player1Attributes = player1Attributes;
+	}
+
+	@Override
+	public PlayerAttributes getPlayer2Attributes() {
+		return player2Attributes;
+	}
+
+	@Override
+	public void setPlayer2Attributes(PlayerAttributes player2Attributes) {
+		this.player2Attributes = player2Attributes;
 	}
 
 	/*
@@ -370,6 +429,7 @@ public class GameControllerImpl implements Runnable, GameController {
 	@Override
 	public void setPlayer2(PlayerController player2) {
 		this.player2 = player2;
+		player2Attributes = player2.getPlayerAttributes();
 	}
 
 	/*
@@ -378,7 +438,7 @@ public class GameControllerImpl implements Runnable, GameController {
 	 * @see atrem.connect4.game.GameController#getGamestate()
 	 */
 	@Override
-	public GameState getGamestate() {
+	public GameState getGameState() {
 		return gameState;
 	}
 
@@ -398,7 +458,7 @@ public class GameControllerImpl implements Runnable, GameController {
 	 * @see atrem.connect4.game.GameController#getLastMove()
 	 */
 	@Override
-	public LastMove getLastMove() {
+	public Move getLastMove() {
 		return lastMove;
 	}
 

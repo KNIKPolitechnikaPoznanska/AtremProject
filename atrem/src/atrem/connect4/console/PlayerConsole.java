@@ -1,5 +1,6 @@
 package atrem.connect4.console;
 
+import java.awt.Color;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -29,7 +30,7 @@ public class PlayerConsole implements PlayerController {
 		this.playerAttributes = playerAttributes;
 		keyHandler = new KeyHandler(gameController.getBoard());
 		guiConsole = new GUIConsole(gameController);
-		gameController.wakeUpGCr();
+		gameController.connectPlayer();
 	}
 
 	@Override
@@ -95,6 +96,24 @@ public class PlayerConsole implements PlayerController {
 	public PlayerAttributes getPlayerAttributes() {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	@Override
+	public Color getColor() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Color getOppColor() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void setPlayerId(PlayerId playerId) {
+		// TODO Auto-generated method stub
+
 	}
 
 }
